@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task.dart';
+import '../services/task_attachment_service.dart';
 import '../widgets/task_visual_card.dart';
 import '../controllers/task_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -511,10 +513,63 @@ class HomeScreen extends StatelessWidget {
                                       ),
                                     );
                                   },
-                                  onDelete: () {
-                                    context
-                                        .read<TaskController>()
-                                        .deleteTask(task.id!);
+                                  onDelete: () async {
+                                    if (task.id == null) return;
+                                    try {
+                                      final attachmentService =
+                                          TaskAttachmentService(
+                                        Supabase.instance.client,
+                                      );
+                                      final adjuntos = await attachmentService
+                                          .listForTask(task.id!);
+                                      if (adjuntos.isNotEmpty) {
+                                        if (!context.mounted) return;
+                                        await showDialog<void>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text(
+                                                'Evidencias multimedia asociadas'),
+                                            content: Text(
+                                              'La tarea "${task.title}" tiene ${adjuntos.length} '
+                                              '${adjuntos.length == 1 ? "evidencia adjunta" : "evidencias adjuntas"} '
+                                              'en Storage.\n\n'
+                                              'Por integridad de datos, elimina primero los archivos adjuntos '
+                                              'desde la Galería de Evidencias antes de borrar la tarea.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx),
+                                                child: const Text('Cerrar'),
+                                              ),
+                                              FilledButton.icon(
+                                                onPressed: () {
+                                                  Navigator.pop(ctx);
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          TaskDetailPage(
+                                                              task: task),
+                                                    ),
+                                                  );
+                                                },
+                                                icon: const Icon(Icons
+                                                    .collections_bookmark_outlined),
+                                                label: const Text(
+                                                    'Ir a Galería de Evidencias'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                    } catch (_) {}
+                                    if (context.mounted) {
+                                      context
+                                          .read<TaskController>()
+                                          .deleteTask(task.id!);
+                                    }
                                   },
                                 );
                               },

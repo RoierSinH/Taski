@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task.dart';
 import '../models/subtask.dart';
 import '../services/supabase_task_service.dart';
+import '../widgets/task_attachments_panel.dart';
 
 class TaskDetailPage extends StatefulWidget {
   const TaskDetailPage({
@@ -193,6 +194,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 );
               },
             ),
+          if (widget.task.id != null) ...[
+            const SizedBox(height: 24),
+            TaskAttachmentsPanel(taskId: widget.task.id!),
+          ],
         ],
       ),
     );
