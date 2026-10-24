@@ -19,6 +19,9 @@ class TaskAttachmentService {
     'audio/mp4',
     'audio/mpeg',
     'audio/x-m4a',
+    'audio/mp3',
+    'audio/wav',
+    'audio/webm',
     'video/mp4',
   };
 
@@ -52,6 +55,8 @@ class TaskAttachmentService {
       '.pdf' => 'application/pdf',
       '.m4a' => 'audio/mp4',
       '.mp3' => 'audio/mpeg',
+      '.wav' => 'audio/wav',
+      '.webm' => 'audio/webm',
       '.mp4' => 'video/mp4',
       _ => null,
     };
@@ -202,7 +207,6 @@ class TaskAttachmentService {
           'original_name': cleanName,
           'description': cleanDescription.isEmpty ? null : cleanDescription,
           'version': attachment.version + 1,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', attachment.id)
         .eq('version', attachment.version)
@@ -219,6 +223,10 @@ class TaskAttachmentService {
     final info = inspectBytes(bytes: newBytes, fileName: fileName);
     final ext = p.extension(fileName).toLowerCase();
     final newPath = '$uid/${attachment.taskId}/${generateUuidV4()}$ext';
+    final cleanFileName = p.basename(fileName).trim();
+    final newOriginalName = (cleanFileName.isNotEmpty && cleanFileName.length <= 150)
+        ? cleanFileName
+        : attachment.originalName;
     final bucket = client.storage.from(bucketName);
 
     await bucket.uploadBinary(
@@ -232,10 +240,10 @@ class TaskAttachmentService {
           .from('task_attachments')
           .update({
             'storage_path': newPath,
+            'original_name': newOriginalName,
             'mime_type': info.mime,
             'size_bytes': info.bytes,
             'version': attachment.version + 1,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', attachment.id)
           .eq('version', attachment.version)

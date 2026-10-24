@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task_attachment.dart';
 import '../services/sample_media_generator.dart';
 import '../services/task_attachment_service.dart';
+import '../services/universal_file_picker.dart';
 import 'task_attachment_viewer.dart';
 
 class TaskAttachmentsPanel extends StatefulWidget {
@@ -249,9 +249,9 @@ class _TaskAttachmentsPanelState extends State<TaskAttachmentsPanel> {
         return;
       }
 
-      if (choice == 'gallery' || choice == 'camera') {
+      if (choice == 'camera') {
         final x = await ImagePicker().pickImage(
-          source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
+          source: ImageSource.camera,
           imageQuality: 80,
           maxWidth: 1600,
         );
@@ -259,28 +259,31 @@ class _TaskAttachmentsPanelState extends State<TaskAttachmentsPanel> {
         final bytes = await x.readAsBytes();
         final name = x.name.isNotEmpty ? x.name : 'fotografia.jpg';
         await uploadSelectedBytes(bytes: bytes, fileName: name);
-      } else if (choice == 'video') {
-        final x = await ImagePicker().pickVideo(source: ImageSource.gallery);
-        if (x == null) return;
-        final bytes = await x.readAsBytes();
-        final name = x.name.isNotEmpty ? x.name : 'video.mp4';
-        await uploadSelectedBytes(bytes: bytes, fileName: name);
-      } else if (choice == 'pdf' || choice == 'audio') {
-        final extensions = choice == 'pdf' ? ['pdf'] : ['m4a', 'mp3'];
-        final xFile = await FileSelectorPlatform.instance.openFile(
-          acceptedTypeGroups: [
-            XTypeGroup(
-              label: choice == 'pdf' ? 'Documento PDF' : 'Audio',
-              extensions: extensions,
-            ),
-          ],
+      } else if (choice == 'gallery') {
+        final picked = await pickUniversalFile(
+          allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+          label: 'Imagen (JPG, PNG, WebP)',
         );
-        if (xFile == null) return;
-        final bytes = await xFile.readAsBytes();
-        final name = xFile.name.isNotEmpty
-            ? xFile.name
-            : (choice == 'pdf' ? 'documento.pdf' : 'audio.m4a');
-        await uploadSelectedBytes(bytes: bytes, fileName: name);
+        if (picked == null) return;
+        await uploadSelectedBytes(bytes: picked.bytes, fileName: picked.name);
+      } else if (choice == 'video') {
+        final picked = await pickUniversalFile(
+          allowedExtensions: const ['mp4'],
+          label: 'Video MP4',
+        );
+        if (picked == null) return;
+        await uploadSelectedBytes(bytes: picked.bytes, fileName: picked.name);
+      } else if (choice == 'pdf' || choice == 'audio') {
+        final extensions = choice == 'pdf' ? ['pdf'] : ['m4a', 'mp3', 'wav'];
+        final picked = await pickUniversalFile(
+          allowedExtensions: extensions,
+          label: choice == 'pdf' ? 'Documento PDF' : 'Audio',
+        );
+        if (picked == null) return;
+        await uploadSelectedBytes(
+          bytes: picked.bytes,
+          fileName: picked.name,
+        );
       }
     } catch (e) {
       message('No se pudo seleccionar: $e');
@@ -449,17 +452,23 @@ class _TaskAttachmentsPanelState extends State<TaskAttachmentsPanel> {
           newFileName = 'reemplazo_v${a.version + 1}.mp4';
         }
       } else {
-        final xFile = await FileSelectorPlatform.instance.openFile(
-          acceptedTypeGroups: const [
-            XTypeGroup(
-              label: 'Archivos permitidos',
-              extensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'm4a', 'mp3', 'mp4'],
-            ),
+        final picked = await pickUniversalFile(
+          allowedExtensions: const [
+            'jpg',
+            'jpeg',
+            'png',
+            'webp',
+            'pdf',
+            'm4a',
+            'mp3',
+            'wav',
+            'mp4',
           ],
+          label: 'Archivos permitidos',
         );
-        if (xFile == null) return;
-        newBytes = await xFile.readAsBytes();
-        newFileName = xFile.name;
+        if (picked == null) return;
+        newBytes = picked.bytes;
+        newFileName = picked.name;
       }
     } catch (e) {
       message('No se pudo leer el archivo de reemplazo: $e');

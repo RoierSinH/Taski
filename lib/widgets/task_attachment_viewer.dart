@@ -86,7 +86,11 @@ class _TaskAttachmentViewerState extends State<TaskAttachmentViewer> {
   Future<void> _openExternalSignedUrl() async {
     if (_signedUrl == null) return;
     final uri = Uri.parse(_signedUrl!);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+      webOnlyWindowName: '_blank',
+    );
   }
 
   @override
