@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/profile_controller.dart';
 import '../models/user_profile.dart';
+import '../services/auth_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -15,6 +17,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   bool _initializedFields = false;
+  bool _deletingAccount = false;
 
   @override
   void initState() {
@@ -61,6 +64,76 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Paso 5 (Parte 10): Integrar una confirmación consciente antes de eliminar la cuenta
+  Future<void> _confirmAndDeleteAccount() async {
+    if (_deletingAccount) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 40),
+        title: const Text('Eliminar mi cuenta permanentemente'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Esta acción es irreversible. Al confirmar, se ejecutará la secuencia de limpieza en el servidor:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 12),
+              Text('• Se eliminarán todos tus archivos en el bucket privado task-attachments.'),
+              Text('• Se eliminará tu fotografía de perfil en el bucket avatars.'),
+              Text('• Se borrarán tus tareas, subtareas, categorías y metadatos en PostgreSQL.'),
+              Text('• Se eliminará tu identidad en Supabase Auth y se cerrará tu sesión local.'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            key: const Key('confirm_delete_account_dialog_button'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_forever),
+            label: const Text('Sí, eliminar mi cuenta'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _deletingAccount = true);
+    try {
+      final authService = AuthService(Supabase.instance.client);
+      await authService.solicitarEliminacion();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cuenta y archivos eliminados correctamente.'),
+        ),
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AuthService.classifyError(e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _deletingAccount = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ProfileController>();
@@ -98,7 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           key: const Key('profile_change_avatar'),
-                          onPressed: controller.loading
+                          onPressed: controller.loading || _deletingAccount
                               ? null
                               : () => controller.pickAndChangeAvatar(),
                           icon: const Icon(Icons.photo_camera),
@@ -173,9 +246,78 @@ class _ProfilePageState extends State<ProfilePage> {
                           height: 48,
                           child: FilledButton.icon(
                             key: const Key('profile_save_button'),
-                            onPressed: controller.loading ? null : _save,
+                            onPressed: controller.loading || _deletingAccount
+                                ? null
+                                : _save,
                             icon: const Icon(Icons.save_outlined),
                             label: const Text('Guardar'),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.security_outlined, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Zona de seguridad de la cuenta',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Puedes solicitar la eliminación definitiva de tu cuenta, '
+                                'tareas, galería de evidencias en Storage y avatar.',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  key: const Key('profile_delete_account_button'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                    side: const BorderSide(color: Colors.red),
+                                  ),
+                                  onPressed: controller.loading || _deletingAccount
+                                      ? null
+                                      : _confirmAndDeleteAccount,
+                                  icon: _deletingAccount
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.red,
+                                          ),
+                                        )
+                                      : const Icon(Icons.delete_forever_outlined),
+                                  label: Text(
+                                    _deletingAccount
+                                        ? 'Eliminando cuenta y archivos...'
+                                        : 'Eliminar mi cuenta',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

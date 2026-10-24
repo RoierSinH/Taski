@@ -35,9 +35,12 @@ class ProfileService implements ProfileRepository {
         .maybeSingle();
 
     if (existing == null) {
-      await _client.from('profiles').upsert({
+      await _client.from('profiles').insert({
         'id': user.id,
-        'display_name': user.userMetadata?['display_name'],
+        'display_name': user.userMetadata?['full_name'] ??
+            user.userMetadata?['name'] ??
+            user.userMetadata?['display_name'] ??
+            'Usuario',
         'bio': '',
       });
     }
