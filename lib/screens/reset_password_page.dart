@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../main.dart';
 import '../services/auth_service.dart';
 
 class ResetPasswordPage extends StatefulWidget {
-  const ResetPasswordPage({super.key});
+  const ResetPasswordPage({
+    super.key,
+    this.noticeMessage,
+  });
+
+  final String? noticeMessage;
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
@@ -31,8 +35,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       await context
           .read<AuthService>()
           .updatePassword(_passwordController.text);
-      recoveryModeNotifier.value = false;
-      initialRecoveryNotice = null;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -62,19 +64,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nueva contraseña'),
-        actions: [
-          if (recoveryModeNotifier.value)
-            TextButton(
-              onPressed: () {
-                recoveryModeNotifier.value = false;
-                initialRecoveryNotice = null;
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Continuar a Taski'),
-            ),
-        ],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -99,7 +88,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             ),
                       ),
                       const SizedBox(height: 8),
-                      if (initialRecoveryNotice != null) ...[
+                      if (widget.noticeMessage != null) ...[
                         Container(
                           padding: const EdgeInsets.all(10),
                           margin: const EdgeInsets.only(bottom: 12),
@@ -108,7 +97,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            initialRecoveryNotice!,
+                            widget.noticeMessage!,
                             style: const TextStyle(fontSize: 12),
                             textAlign: TextAlign.center,
                           ),

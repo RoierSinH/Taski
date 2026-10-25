@@ -17,42 +17,17 @@ import 'theme/taski_colors.dart';
 
 final themeController = ThemeController();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-final ValueNotifier<bool> recoveryModeNotifier = ValueNotifier<bool>(false);
-String? initialRecoveryNotice;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.instance.initialize();
   await themeController.load();
 
-  final fullUrl = Uri.base.toString();
-  final fragment = Uri.base.fragment;
-  if (fullUrl.contains('type=recovery') || fragment.contains('type=recovery')) {
-    recoveryModeNotifier.value = true;
-  } else if (fullUrl.contains('otp_expired') || fragment.contains('otp_expired')) {
-    recoveryModeNotifier.value = true;
-    initialRecoveryNotice =
-        'Nota: El enlace del correo es de un solo uso y ya había abierto tu sesión de recuperación. Puedes actualizar tu contraseña aquí.';
-  }
-
   SupabaseConfig.validate();
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-
-  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-    if (data.event == AuthChangeEvent.passwordRecovery) {
-      recoveryModeNotifier.value = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        navigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (_) => const ResetPasswordPage(),
-          ),
-        );
-      });
-    }
-  });
 
   runApp(
     MultiProvider(
@@ -98,6 +73,56 @@ class TaskiApp extends StatefulWidget {
 }
 
 class _TaskiAppState extends State<TaskiApp> {
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _openedInitialRecovery = false;
+
+  void _openResetPasswordPage({String? notice}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ResetPasswordPage(noticeMessage: notice),
+        ),
+      );
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      final fullUrl = Uri.base.toString();
+      final fragment = Uri.base.fragment;
+      if (!_openedInitialRecovery &&
+          (fullUrl.contains('type=recovery') || fragment.contains('type=recovery'))) {
+        _openedInitialRecovery = true;
+        _openResetPasswordPage();
+      } else if (!_openedInitialRecovery &&
+          (fullUrl.contains('otp_expired') || fragment.contains('otp_expired'))) {
+        _openedInitialRecovery = true;
+        _openResetPasswordPage(
+          notice:
+              'Nota: El enlace del correo es de un solo uso y ya había abierto tu sesión. Puedes actualizar tu contraseña aquí.',
+        );
+      }
+
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+        (data) {
+          if (data.event == AuthChangeEvent.passwordRecovery && !_openedInitialRecovery) {
+            _openedInitialRecovery = true;
+            _openResetPasswordPage();
+          }
+        },
+        onError: (_) {},
+      );
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
