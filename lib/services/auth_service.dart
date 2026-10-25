@@ -48,7 +48,7 @@ class AuthService {
   Future<void> sendPasswordReset(String email) async {
     await _client.auth.resetPasswordForEmail(
       email.trim(),
-      redirectTo: kIsWeb ? null : mobileRedirectUri,
+      redirectTo: kIsWeb ? Uri.base.origin : mobileRedirectUri,
     );
   }
 

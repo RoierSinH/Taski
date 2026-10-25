@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/profile_controller.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
+import 'reset_password_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -251,6 +252,26 @@ class _ProfilePageState extends State<ProfilePage> {
                                 : _save,
                             icon: const Icon(Icons.save_outlined),
                             label: const Text('Guardar'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            key: const Key('profile_change_password_button'),
+                            onPressed: controller.loading || _deletingAccount
+                                ? null
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const ResetPasswordPage(),
+                                      ),
+                                    );
+                                  },
+                            icon: const Icon(Icons.lock_reset),
+                            label: const Text('Cambiar mi contraseña'),
                           ),
                         ),
                         const SizedBox(height: 32),
