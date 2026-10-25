@@ -59,7 +59,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             const Text(
-              'Taski 8.0',
+              'Taski 10.0',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
